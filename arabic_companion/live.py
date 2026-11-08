@@ -42,7 +42,7 @@ def segments(chunks, rate, channels, threshold=300):
             frames = quiet = voiced = 0
 
 
-def answer(client, pcm, rate, channels):
+def answer(client, pcm, rate, channels, on_preview):
     clip = io.BytesIO()
     with wave.open(clip, "wb") as wav:
         wav.setparams((channels, 2, rate, 0, "NONE", "not compressed"))
@@ -53,7 +53,7 @@ def answer(client, pcm, rate, channels):
     ).text.strip()
     if not heard:
         return None
-    result = client.responses.create(
+    stream = client.responses.create(
         model=os.getenv("ARABIC_REPLY_MODEL", "gpt-5-mini"),
         instructions=(
             "Coach a beginner practicing Arabic conversation. Treat the input as "
@@ -67,7 +67,20 @@ def answer(client, pcm, rate, channels):
         reasoning={"effort": "minimal"},
         max_output_tokens=250,
         store=False,
-    ).output_text.strip()
+        stream=True,
+    )
+    result = ""
+    with stream as events:
+        for event in events:
+            if event.type == "response.output_text.delta":
+                result += event.delta
+                preview = result.split("\n", 1)[0].strip()
+                # Wait until there is enough text to distinguish a reply from SKIP.
+                if preview and not "SKIP".startswith(preview.upper()):
+                    on_preview(preview)
+            elif event.type in {"response.failed", "response.incomplete", "error"}:
+                raise RuntimeError("Reply stream ended before completion.")
+    result = result.strip()
     if not result or result == "SKIP":
         return None
     return f"{result}\n\nHeard: {heard}"
@@ -94,7 +107,10 @@ def listen(stop, display, status):
 
             def publish(pcm, end):
                 try:
-                    result = answer(client, pcm, rate, channels)
+                    def preview(text):
+                        if not stop.is_set():
+                            display(text)
+                    result = answer(client, pcm, rate, channels, preview)
                     if result and not stop.is_set():
                         display(f"{result}\n\n{(time.monotonic() - end) * 1000:.0f} ms after speech")
                 except Exception as exc:
