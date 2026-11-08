@@ -40,3 +40,15 @@ This archive includes an initialized Git repository and its first commit. No Git
 git remote add origin https://github.com/YOUR_USERNAME/arabic-companion.git
 git push -u origin main
 ```
+
+## Live practice
+
+Set `OPENAI_API_KEY` in your PowerShell session before launching. Start the
+app and click **Start live practice**. Audio above the level threshold opens a
+clip, and roughly 320 ms of quiet closes it. Clips are sent to the transcription
+API in memory, and the suggested reply and measured delay appear in the window.
+The threshold detects audio level, so music and other apps can trigger capture.
+Use the mode with practice audio you are allowed to send to the API.
+
+The defaults are `gpt-transcribe` and `gpt-5-mini`. You can override them
+with `ARABIC_STT_MODEL` and `ARABIC_REPLY_MODEL`. API use requires billing.
