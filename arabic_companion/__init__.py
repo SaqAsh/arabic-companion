@@ -1,0 +1,1 @@
+"""Windows Arabic conversation companion."""
